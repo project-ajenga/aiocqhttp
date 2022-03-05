@@ -3,9 +3,34 @@
 """
 
 import asyncio
-from typing import (Any, Callable, Awaitable, Iterable, List)
+from contextvars import copy_context
+from functools import partial, wraps
+from inspect import isgenerator
+from typing import Any, Awaitable, Callable, Coroutine, Iterable, List
 
-from quart.utils import run_sync
+
+def run_sync(func: Callable[..., Any]) -> Callable[..., Coroutine[Any, None, None]]:
+    """Ensure that the sync function is run within the event loop.
+
+    If the *func* is not a coroutine it will be wrapped such that
+    it runs in the default executor (use loop.set_default_executor
+    to change). This ensures that synchronous functions do not
+    block the event loop.
+    """
+
+    @wraps(func)
+    async def _wrapper(*args: Any, **kwargs: Any) -> Any:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None, copy_context().run, partial(func, *args, **kwargs)
+        )
+        if isgenerator(result):
+            return run_sync_iterable(result)  # type: ignore
+        else:
+            return result
+
+    _wrapper._quart_async_wrapper = True  # type: ignore
+    return _wrapper
 
 
 def ensure_async(func: Callable[..., Any]) -> Callable[..., Awaitable[Any]]:

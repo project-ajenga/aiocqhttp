@@ -4,7 +4,10 @@
 
 import asyncio
 import sys
-from typing import Callable, Dict, Any, Optional, Set, Union, Awaitable
+from typing import Any, Awaitable, Callable, Dict, Optional, Set, Union
+
+import aiohttp
+import aiohttp.web as web
 
 from .api import Api, AsyncApi, SyncApi
 
@@ -12,10 +15,6 @@ try:
     import ujson as json
 except ImportError:
     import json
-
-import httpx
-from quart import websocket as event_ws
-from quart.wrappers.websocket import Websocket
 
 from .exceptions import ActionFailed, ApiNotAvailable, HttpFailed, NetworkError
 from .utils import sync_wait
@@ -62,16 +61,16 @@ class HttpApi(AsyncApi):
             headers['Authorization'] = 'Bearer ' + self._access_token
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with aiohttp.ClientSession() as client:
                 resp = await client.post(self._api_root + action,
                                          json=params,
                                          headers=headers)
-            if 200 <= resp.status_code < 300:
-                return _handle_api_result(json.loads(resp.text))
-            raise HttpFailed(resp.status_code)
-        except httpx.InvalidURL:
+                if 200 <= resp.status < 300:
+                    return _handle_api_result(json.loads(await resp.text()))
+            raise HttpFailed(resp.status)
+        except aiohttp.InvalidURL:
             raise NetworkError('API root url invalid')
-        except httpx.HTTPError:
+        except aiohttp.ClientError:
             raise NetworkError('HTTP request failed')
 
 
@@ -118,8 +117,8 @@ class WebSocketReverseApi(AsyncApi):
     实现通过反向 WebSocket 调用 OneBot API。
     """
 
-    def __init__(self, connected_api_clients: Dict[str, Websocket],
-                 connected_event_clients: Set[Websocket],
+    def __init__(self, connected_api_clients: Dict[str, web.WebSocketResponse],
+                 connected_event_clients: Set[web.WebSocketResponse],
                  timeout_sec: float):
         super().__init__()
         self._api_clients = connected_api_clients
@@ -131,25 +130,25 @@ class WebSocketReverseApi(AsyncApi):
         if params.get('self_id'):
             # 明确指定
             api_ws = self._api_clients.get(str(params['self_id']))
-        elif event_ws and event_ws in self._event_clients:
-            # 没有指定，但在事件处理函数中
-            api_ws = self._api_clients.get(event_ws.headers['X-Self-ID'])
+        # elif event_ws and event_ws in self._event_clients:
+        #     # 没有指定，但在事件处理函数中
+        #     api_ws = self._api_clients.get(event_ws.headers['X-Self-ID'])
         elif len(self._api_clients) == 1:
             # 没有指定，不在事件处理函数中，但只有一个连接
             api_ws = tuple(self._api_clients.values())[0]
 
-        if not api_ws:
+        if api_ws is None:
             raise ApiNotAvailable
 
         seq = _SequenceGenerator.next()
-        await api_ws.send(
-            json.dumps({
+        await api_ws.send_json(
+            {
                 'action': action,
                 'params': params,
                 'echo': {
                     'seq': seq
                 }
-            }))
+            })
         return _handle_api_result(await
                                   ResultStore.fetch(seq, self._timeout_sec))
 
@@ -217,7 +216,7 @@ class LazyApi(Api):
     延迟获取 `aiocqhttp.api.Api` 对象。
     """
 
-    def __init__(self, api_getter: Callable[[], Union[Api]]):
+    def __init__(self, api_getter: Callable[[], Api]):
         self._api_getter = api_getter
 
     def call_action(self, action: str, **params) -> Union[Awaitable[Any], Any]:

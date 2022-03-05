@@ -1,11 +1,11 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 with open('README.md', 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name='aiocqhttp',
-    version='1.4.2',
+    version='1.5.0',
     url='https://github.com/nonebot/aiocqhttp',
     license='MIT License',
     author='Richard Chien',
@@ -18,7 +18,7 @@ setup(
     package_data={
         '': ['*.pyi'],
     },
-    install_requires=['Quart>=0.14,<0.15', 'httpx>=0.11,<1.0'],
+    install_requires=['aiohttp'],
     extras_require={
         'all': ['ujson'],
     },
