@@ -9,7 +9,7 @@ import hmac
 import logging
 import re
 from typing import (Any, AnyStr, Awaitable, Callable, Coroutine, Dict,
-                    Optional, Union)
+                    Iterable, Optional, Union)
 
 import aiohttp.web as web
 
@@ -93,6 +93,7 @@ class CQHttp(AsyncApi):
                  secret: Optional[AnyStr] = None,
                  message_class: Optional[type] = None,
                  api_timeout_sec: Optional[float] = None,
+                 ws_endpoints: Optional[Iterable[str]] = None,
                  server_app_kwargs: Optional[dict] = None,
                  **kwargs):
         """
@@ -129,7 +130,8 @@ class CQHttp(AsyncApi):
         self._server_app = web.Application(**(server_app_kwargs or {}))
         self._server_app.on_startup.append(self._before_serving)
         self._server_app.router.add_post('/', self._handle_http_event)
-        for p in ('/ws', '/ws/event', '/ws/api', '/ws/', '/ws/event/', '/ws/api/'):
+        ws_endpoints = ws_endpoints or ('/ws', '/ws/event', '/ws/api', '/ws/', '/ws/event/', '/ws/api/')
+        for p in ws_endpoints:
             self._server_app.router.add_get(p, self._handle_wsr)
 
         self._configure(api_root, access_token, secret, message_class,
