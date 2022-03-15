@@ -2,7 +2,7 @@
 此模块提供了 OneBot (CQHTTP) 事件相关的类。
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class Event(dict):
@@ -38,6 +38,8 @@ class Event(dict):
         事件具体类型，依 `type` 的不同而不同，以 ``message`` 类型为例，有
         ``private``、``group``、``discuss`` 等。
         """
+        if self.type == "message_sent":
+            return self[f'message_type']
         return self[f'{self.type}_type']
 
     @property
