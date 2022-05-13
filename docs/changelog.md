@@ -1,5 +1,22 @@
 # 更新日志
 
+## v1.5.3
+
+- 修复从 `str` 构造 `Message` 时无法识别空参数值 [nonebot/aiocqhttp#60](https://github.com/nonebot/aiocqhttp/issues/60)
+
+## v1.5.2
+
+- 新增 [go-cqhttp](https://github.com/Mrs4s/go-cqhttp) 的 `message_sent` 事件类型支持
+
+## v1.5.1
+
+- 移除 `quart` 和 `httpx` 依赖
+- `CQHttp` 类的构造函数新增 `ws_endpoints` 参数，用于支持用户自定义的终结点
+
+## v1.5.0
+
+- 将基于 `quart` 和 `httpx` 的网络逻辑替换为纯 `aiohttp`实现
+
 ## v1.4.2
 
 - 修复从 `str` 构造 `Message` 时无法正确去转义参数 [#57](https://github.com/nonebot/aiocqhttp/issues/57)
